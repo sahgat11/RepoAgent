@@ -23,11 +23,18 @@ def main():
 
     print(f"Created {len(chunks)} chunks.\n")
 
-    for chunk in chunks[:5]:
+    for chunk in chunks[:10]:
         print(
             f"{chunk['path']} "
             f"[lines {chunk['start_line']}-{chunk['end_line']}]"
         )
+
+        if chunk.get("symbol"):
+            print(
+                f"Type: {chunk['type']} | "
+                f"Symbol: {chunk['symbol']}"
+            )
+
         print(chunk["content"])
         print("-" * 60)
 
