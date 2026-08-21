@@ -6,9 +6,13 @@ from repoagent.chunker import chunk_repository
 from repoagent.embeddings import EmbeddingModel
 from repoagent.search import semantic_search
 from repoagent.index import save_index, load_index, index_exists
+from repoagent.answer import AnswerGenerator
 
 
-def build_index(repo_path: Path, embedding_model: EmbeddingModel):
+def build_index(
+    repo_path: Path,
+    embedding_model: EmbeddingModel,
+):
     files = load_repository(str(repo_path))
     print(f"Found {len(files)} source files.")
 
@@ -16,9 +20,11 @@ def build_index(repo_path: Path, embedding_model: EmbeddingModel):
         files=files,
         repo_root=repo_path,
     )
+
     print(f"Created {len(chunks)} chunks.")
 
     embeddings = embedding_model.embed_chunks(chunks)
+
     print(f"Generated {len(embeddings)} embeddings.")
 
     save_index(chunks, embeddings)
@@ -36,6 +42,7 @@ def main():
     repo_path = Path(sys.argv[1]).resolve()
 
     embedding_model = EmbeddingModel()
+    answer_generator = AnswerGenerator()
 
     if index_exists():
         print("Loading existing index...")
@@ -66,25 +73,28 @@ def main():
             query_embedding=query_embedding,
             embeddings=embeddings,
             chunks=chunks,
-            top_k=3,
+            top_k=5,
         )
 
-        print("\nTop matches:\n")
+        print("\nSearching repository...")
 
-        for i, result in enumerate(results, start=1):
+        answer = answer_generator.generate_answer(
+            query=query,
+            search_results=results,
+        )
+
+        print("\nRepoAgent:\n")
+        print(answer)
+
+        print("\nSources:")
+
+        for result in results[:2]:
             print(
-                f"{i}. {result['path']} "
-                f"[lines {result['start_line']}-{result['end_line']}]"
+                f"- {result['path']}:"
+                f"{result['start_line']}-"
+                f"{result['end_line']} "
+                f"(similarity {result['score']:.3f})"
             )
-
-            if result.get("symbol"):
-                print(
-                    f"   {result['type']}: "
-                    f"{result['symbol']}"
-                )
-
-            print(f"   Similarity: {result['score']:.4f}")
-            print()
 
 
 if __name__ == "__main__":
