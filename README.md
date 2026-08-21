@@ -1,86 +1,167 @@
-# RepoAgent
+# 🤖 RepoAgent
 
-RepoAgent is a fully local AI codebase assistant that indexes Git repositories, semantically searches source code, and uses an agentic LLM to answer questions about a repository.
+**RepoAgent is a fully local AI assistant for understanding unfamiliar codebases.**
 
-It can analyze either a local repository or a public GitHub URL and answer questions about implementation, architecture, functions, and project structure.
+Give it a local repository or a public GitHub URL, ask questions in plain English, and RepoAgent searches the codebase, inspects relevant files and symbols, and returns concise answers grounded in the repository.
 
-## Features
+No paid LLM API is required.
 
-* Analyze local Git repositories
-* Clone and analyze public GitHub repositories
-* Automatically remove temporary GitHub clones after use
-* AST-aware Python code chunking
-* Semantic code search using Sentence Transformers
-* Hybrid semantic, lexical, and path-aware retrieval
-* Persistent per-repository embedding indexes
-* Agentic repository tools:
+---
 
-  * `search_code`
-  * `find_symbol`
-  * `read_file`
-  * `list_files`
-* Local LLM inference through Ollama
-* No paid API required
-* Concise answers focused on repository implementation
+## 🌟 Highlights
 
-## Architecture
+- 🔍 **Ask natural-language questions about an entire repository**
+- 🧠 **Hybrid semantic + lexical code retrieval**
+- 🛠️ **Agentic tool calling** for code search, symbol lookup, file reading, and repository inspection
+- 🌳 **AST-aware Python chunking** instead of arbitrary text splitting
+- ⚡ **Persistent embedding cache** avoids recomputing repository indexes
+- 🌐 **Analyze public GitHub repositories directly from a URL**
+- 💻 **Runs locally with Ollama + Sentence Transformers**
+- 🔒 **Repository source stays local during inference**
+- 🧪 **8 automated tests covering the core indexing and retrieval pipeline**
+- 📊 **100% Recall@5, 75% Accuracy@1, and 0.833 MRR** across the current multi-repository retrieval benchmark
 
-```text
-                     RepoAgent
+---
 
- GitHub URL / Local Repository
-              |
-              v
-       Repository Loader
-              |
-              v
-       Source File Filter
-              |
-              v
-      AST / Line Chunking
-              |
-              v
-      Embedding Generation
-              |
-              v
-      Persistent Vector Index
-              |
-              |
-        User Question
-              |
-              v
-          RepoAgent
-              |
-     ---------------------
-     |        |          |
-     v        v          v
- Search    Find       Read File
- Code      Symbol
-     \        |          /
-      \       |         /
-       -----------------
-              |
-              v
-        Local Ollama LLM
-              |
-              v
-      Concise Code Answer
+## 📊 Performance
+
+RepoAgent includes a retrieval benchmark built around implementation-level questions from two real open-source repositories:
+
+- [Pallets Click](https://github.com/pallets/click)
+- [Requests](https://github.com/psf/requests)
+
+### Current Results
+
+| Metric | Result |
+| --- | ---: |
+| Benchmark Questions | 12 |
+| Accuracy@1 | **75.0%** |
+| Recall@5 | **100.0%** |
+| Mean Reciprocal Rank | **0.833** |
+
+### Per-Repository Results
+
+| Repository | Questions | Accuracy@1 | Recall@5 | MRR |
+| --- | ---: | ---: | ---: | ---: |
+| Click | 6 | 66.67% | 100.0% | 0.750 |
+| Requests | 6 | 83.33% | 100.0% | 0.917 |
+| **Overall** | **12** | **75.0%** | **100.0%** | **0.833** |
+
+The benchmark measures whether RepoAgent retrieves the correct implementation file for a codebase question.
+
+Results are deduplicated by source file before ranking so multiple chunks from the same file cannot artificially occupy the top results.
+
+Run the benchmark yourself:
+
+```bash
+python evaluate.py
 ```
 
-## Tech Stack
+---
 
-* Python
-* Ollama
-* Qwen2.5
-* Sentence Transformers
-* NumPy
-* Python AST
-* Git
-* OpenAI-compatible local API
+## ⚡ Why RepoAgent?
 
-## Installation
+Large codebases are difficult to explore with a normal LLM.
 
-Clone RepoAgent:
+You often have to:
+
+- manually paste files into the prompt
+- explain the project structure yourself
+- repeatedly search through directories
+- send large amounts of irrelevant code to the model
+- rely on a model that may hallucinate implementation details
+
+RepoAgent instead builds a searchable representation of the repository and lets the model retrieve only the code it needs.
+
+```text
+Repository
+    ↓
+Source discovery
+    ↓
+AST / line-based chunking
+    ↓
+Local embeddings
+    ↓
+Persistent repository index
+    ↓
+Hybrid retrieval
+    ↓
+Agent tool calls
+    ↓
+Grounded answer
+```
+
+---
+
+## 🚀 Usage
+
+Analyze a public GitHub repository:
+
+```bash
+python main.py https://github.com/pallets/click
+```
+
+Or analyze a local repository:
+
+```bash
+python main.py /path/to/repository
+```
+
+Then ask questions such as:
+
+```text
+Where is command parsing implemented?
+
+What does load_repository do?
+
+Where are HTTP sessions implemented?
+
+How is the repository index built?
+
+Where are exceptions defined?
+
+What files handle authentication?
+```
+
+Example:
+
+```text
+╭─────────────────────────────╮
+│ RepoAgent                   │
+│ Local AI Codebase Assistant │
+╰─────────────────────────────╯
+
+Repository: https://github.com/pallets/click
+Cloning repository temporarily...
+
+Loading embedding model...
+Cached repository index found.
+Loaded 910 chunks.
+
+╭─────────────────────── RepoAgent ────────────────────────╮
+│ RepoAgent is ready                                       │
+│ Ask questions about the repository. Type 'exit' to quit. │
+╰──────────────────────────────────────────────────────────╯
+
+You: Where is option parsing handled?
+
+RepoAgent:
+
+Option parsing is primarily implemented in src/click/parser.py,
+with higher-level command processing in src/click/core.py.
+```
+
+---
+
+## ⬇️ Installation
+
+### Requirements
+
+- Python 3.9+
+- Git
+- Ollama
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/sahgat11/RepoAgent.git
@@ -100,225 +181,411 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Install Ollama and download the local model:
+Install the local LLM:
 
 ```bash
 ollama pull qwen2.5:3b
 ```
 
-Make sure Ollama is running before starting RepoAgent.
-
-## Usage
-
-### Analyze a local repository
-
-```bash
-python main.py /path/to/repository
-```
-
-For example:
-
-```bash
-python main.py .
-```
-
-### Analyze a GitHub repository
-
-```bash
-python main.py https://github.com/user/repository
-```
-
-For example:
+Make sure Ollama is running, then start RepoAgent:
 
 ```bash
 python main.py https://github.com/pallets/click
 ```
 
-RepoAgent temporarily clones the GitHub repository, builds or loads its semantic index, and removes the cloned source files when the session ends.
+---
 
-## Example
+## 🧠 How It Works
 
-```text
-Cloning GitHub repository: https://github.com/pallets/click
-Repository cloned successfully.
-Loading existing index...
-Loaded 910 chunks.
-
-RepoAgent ready.
-
-Ask about the repository (or type 'exit'):
-Where is command parsing implemented?
-
-Thinking...
-
-RepoAgent:
-
-Command parsing is primarily handled inside Click's core source modules,
-including src/click/core.py and src/click/parser.py.
-```
-
-## How It Works
+RepoAgent combines retrieval, repository-specific tooling, and a local LLM.
 
 ### 1. Repository Loading
 
-RepoAgent recursively scans the repository and keeps supported source-code files while ignoring directories such as:
+RepoAgent recursively scans supported source files while ignoring directories such as:
 
 ```text
 .git
 venv
+.venv
 node_modules
+__pycache__
 build
 dist
-__pycache__
 ```
+
+Public GitHub repositories are shallow-cloned using:
+
+```bash
+git clone --depth 1
+```
+
+The temporary clone is automatically deleted when the RepoAgent session ends.
+
+---
 
 ### 2. Code Chunking
 
-Python source files are parsed using Python's Abstract Syntax Tree (AST).
+Python files use **AST-aware chunking**.
 
-Functions and classes become individual searchable chunks containing:
+Functions, async functions, and classes are extracted as logical code units containing metadata such as:
 
 ```text
 file path
-symbol name
+symbol
 chunk type
-starting line
-ending line
+start line
+end line
 source code
 ```
 
-Other supported languages fall back to overlapping line-based chunking.
+For example:
 
-### 3. Embeddings
+```python
+{
+    "path": "repoagent/loader.py",
+    "symbol": "load_repository",
+    "type": "function",
+    "start_line": 15,
+    "end_line": 32,
+    "content": "..."
+}
+```
 
-Each code chunk is converted into a semantic embedding using:
+Other supported languages use overlapping line-based chunks.
+
+---
+
+### 3. Local Embeddings
+
+Chunks are embedded locally using:
 
 ```text
 sentence-transformers/all-MiniLM-L6-v2
 ```
 
-Embeddings are normalized and stored as a NumPy matrix.
+The model generates normalized **384-dimensional embeddings**.
+
+Repository embeddings are stored as a NumPy matrix for efficient similarity search.
+
+---
 
 ### 4. Hybrid Retrieval
 
-RepoAgent combines multiple retrieval signals:
+RepoAgent combines several ranking signals:
 
-* Semantic embedding similarity
-* Keyword relevance
-* Symbol relevance
-* Filename relevance
-* Repository path weighting
+- semantic embedding similarity
+- keyword overlap
+- symbol relevance
+- filename relevance
+- source-path relevance
 
-Core implementation directories such as `src/` receive preference over directories such as `examples/`, `tests/`, and `docs/`.
+Core source directories are favored over lower-priority locations such as examples, documentation, and tests.
+
+This improves retrieval compared with relying only on vector similarity.
+
+---
 
 ### 5. Persistent Indexing
 
-Repository embeddings and chunk metadata are cached under:
+Generated indexes are cached locally under:
 
 ```text
 data/index/
 ```
 
-Each repository receives its own identifier, allowing RepoAgent to reuse previously generated embeddings.
+Each repository stores:
 
-Generated indexes are excluded from Git.
+```text
+embeddings.npy
+chunks.json
+```
 
-### 6. Agent Tools
+When RepoAgent sees the same repository again, it loads the cached index instead of regenerating every embedding.
 
-The local model can investigate the repository using several tools.
+For example, the Click repository currently produces:
 
-#### `search_code`
+```text
+79 source files
+910 indexed chunks
+```
 
-Semantically searches for code related to a concept or behavior.
+After the initial indexing pass, those 910 chunks can be loaded directly from the cache.
 
-#### `find_symbol`
+Force a fresh index with:
 
-Finds functions or classes by exact symbol name.
+```bash
+python main.py https://github.com/pallets/click --rebuild
+```
 
-#### `read_file`
+---
 
-Reads a specific repository file when additional context is required.
+## 🛠️ Agent Tools
 
-#### `list_files`
+The local LLM does not receive the entire repository at once.
 
-Returns the source-file structure of the repository.
+Instead, RepoAgent exposes repository-specific tools that the model can call when needed.
 
-The agent can use multiple tools before producing its final answer.
+### `search_code`
 
-## Local AI
+Finds source code related to a concept or behavior.
 
-RepoAgent runs its language model locally using Ollama.
+```text
+Where is authentication implemented?
+```
 
-The default model is:
+### `find_symbol`
+
+Finds an exact function or class.
+
+```text
+What does load_repository do?
+```
+
+### `read_file`
+
+Reads a specific repository file when additional context is needed.
+
+### `list_files`
+
+Returns the supported source files in the repository.
+
+The model can make multiple tool calls before producing its final answer.
+
+---
+
+## 💻 Local-First AI
+
+RepoAgent runs both major AI components locally.
+
+### Embedding Model
+
+```text
+all-MiniLM-L6-v2
+```
+
+### Language Model
 
 ```text
 qwen2.5:3b
 ```
 
-This means repository source code does not need to be sent to a paid cloud LLM API.
+The language model runs through Ollama's OpenAI-compatible endpoint:
 
-Embedding generation also runs locally.
+```text
+http://localhost:11434/v1
+```
 
-## Supported Languages
+No paid OpenAI API key is required.
+
+This architecture also means repository source code does not need to be sent to a paid cloud LLM during normal use.
+
+---
+
+## ⚙️ Efficiency
+
+RepoAgent is designed to avoid unnecessary computation.
+
+### Persistent Embedding Cache
+
+Repositories are embedded once and reused across future sessions.
+
+```text
+First run:
+clone → scan → chunk → embed → save index
+
+Later runs:
+clone → load cached index
+```
+
+This avoids recomputing hundreds or thousands of embeddings every time RepoAgent starts.
+
+### Shallow Git Cloning
+
+Remote repositories use:
+
+```bash
+git clone --depth 1
+```
+
+This avoids downloading unnecessary Git history.
+
+### Targeted Context Retrieval
+
+Instead of placing an entire codebase into the LLM context window, RepoAgent retrieves only the most relevant code chunks.
+
+This reduces the amount of code processed by the language model and makes local inference practical with a relatively small model.
+
+### Vectorized Similarity Search
+
+Normalized repository embeddings are stored in a NumPy matrix.
+
+Query similarity is computed using vectorized matrix operations rather than comparing chunks individually in Python.
+
+---
+
+## 🧪 Testing
+
+Run the automated test suite:
+
+```bash
+python -m pytest -v
+```
+
+Current result:
+
+```text
+8 passed
+```
+
+The tests cover:
+
+- source-file discovery
+- ignored repository directories
+- AST-aware Python chunking
+- line-based fallback chunking
+- multi-file chunk generation
+- persistent index save/load
+- semantic retrieval ranking
+- repository path-traversal protection
+
+---
+
+## 🔒 File Safety
+
+The `read_file` tool validates requested paths before reading files.
+
+Attempts to escape the repository root, such as:
+
+```text
+../secret.py
+```
+
+are rejected.
+
+This prevents an agent tool call from reading arbitrary files outside the repository being analyzed.
+
+---
+
+## 🌐 Supported Languages
 
 RepoAgent currently indexes:
 
-* Python
-* JavaScript
-* TypeScript
-* JSX
-* TSX
-* Java
-* C
-* C++
-* Go
-* Rust
+- Python
+- JavaScript
+- JSX
+- TypeScript
+- TSX
+- Java
+- C
+- C++
+- Go
+- Rust
 
-Python receives AST-aware chunking, while other languages currently use overlapping line-based chunking.
+Python receives syntax-aware AST chunking.
 
-## Current Limitations
+Other languages currently use overlapping line-based chunks.
 
-RepoAgent is an experimental developer tool.
+---
 
-Current limitations include:
-
-* Local model reasoning quality depends on the selected Ollama model
-* Very large repositories may require longer initial indexing times
-* Non-Python languages currently use line-based rather than syntax-aware chunking
-* Cached GitHub indexes do not yet automatically detect upstream repository updates
-* Retrieval may occasionally return conceptually related code instead of the exact implementation
-
-## Planned Improvements
-
-* Retrieval evaluation benchmark
-* Automatic GitHub index freshness detection
-* CLI `--rebuild` option
-* Improved terminal interface
-* Automated tests
-* Additional language-aware parsers
-
-## Why RepoAgent?
-
-General-purpose LLMs often require developers to manually paste files or explain repository structure.
-
-RepoAgent instead builds a searchable representation of the entire codebase and gives the model tools to retrieve relevant implementation details when needed.
-
-The goal is a faster workflow for questions such as:
+## 📁 Project Structure
 
 ```text
-Where is authentication implemented?
-
-What calls this function?
-
-How is the repository indexed?
-
-Where is request validation handled?
-
-What files are responsible for database access?
-
-What does load_repository do?
+RepoAgent/
+├── main.py
+├── evaluate.py
+├── requirements.txt
+├── pytest.ini
+├── README.md
+│
+├── repoagent/
+│   ├── agent.py
+│   ├── chunker.py
+│   ├── embeddings.py
+│   ├── index.py
+│   ├── loader.py
+│   ├── repo_source.py
+│   ├── search.py
+│   └── tools.py
+│
+└── tests/
+    └── test_repoagent.py
 ```
 
-## License
+---
 
-This project is intended for educational and portfolio use.
+## 🧰 Tech Stack
+
+| Component | Technology |
+| --- | --- |
+| Language | Python |
+| Local LLM | Qwen2.5 3B |
+| LLM Runtime | Ollama |
+| Embeddings | Sentence Transformers |
+| Embedding Model | all-MiniLM-L6-v2 |
+| Vector Operations | NumPy |
+| Python Parsing | AST |
+| CLI | Rich |
+| Repository Operations | Git |
+| Tests | Pytest |
+
+---
+
+## 🚧 Current Limitations
+
+RepoAgent is currently a v1 developer tool.
+
+Known limitations include:
+
+- local answer quality depends on the reasoning ability of the selected Ollama model
+- non-Python languages currently use line-based rather than syntax-aware chunking
+- cached GitHub indexes do not automatically detect new upstream commits
+- retrieval may occasionally rank a related implementation above the most specific file
+- the current benchmark contains 12 questions across two repositories
+- large repositories require more time during their initial indexing pass
+
+---
+
+## 🔮 Possible Future Improvements
+
+Potential extensions include:
+
+- Git commit SHA-based cache invalidation
+- syntax-aware parsing for more languages
+- automatic source citations in answers
+- larger multi-language retrieval benchmarks
+- cross-encoder reranking
+- configurable embedding models
+- configurable Ollama models
+- function call-graph analysis
+- repository dependency graph analysis
+- recursive AST extraction for class methods
+
+---
+
+## 🤝 Feedback & Contributions
+
+RepoAgent is an experimental developer tool, and feedback is welcome.
+
+If you find a bug, have an idea for better retrieval, or want support for another language, open an issue on GitHub.
+
+Contributions are also welcome, particularly around:
+
+- retrieval quality
+- additional language parsers
+- evaluation questions
+- local model support
+- developer experience
+
+---
+
+## 👤 Author
+
+Created by [Sahil Gattu](https://github.com/sahgat11).
+
+RepoAgent was built as an exploration of local LLM agents, retrieval-augmented generation, semantic code search, and practical AI tooling for software development.
+
+---
+
+## 📄 License
+
+This project is currently intended for educational and portfolio use.
