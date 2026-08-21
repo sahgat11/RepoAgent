@@ -26,6 +26,7 @@ class RepoTools:
         query_embedding = self.embedding_model.embed_query(query)
 
         return semantic_search(
+            query=query,
             query_embedding=query_embedding,
             embeddings=self.embeddings,
             chunks=self.chunks,

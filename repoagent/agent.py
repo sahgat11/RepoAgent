@@ -23,21 +23,21 @@ class RepoAgent:
                 "function": {
                     "name": "search_code",
                     "description": (
-                        "Semantically search the repository for code related "
-                        "to a concept, behavior, or implementation."
+                        "Search repository code for concepts, behaviors, "
+                        "features, or implementation details."
                     ),
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
-                                "description": "What code to search for.",
+                                "description": (
+                                    "Description of the implementation "
+                                    "or behavior to search for."
+                                ),
                             },
                             "top_k": {
                                 "type": "integer",
-                                "description": (
-                                    "Number of search results to return."
-                                ),
                                 "default": 5,
                             },
                         },
@@ -50,7 +50,8 @@ class RepoAgent:
                 "function": {
                     "name": "find_symbol",
                     "description": (
-                        "Find an exact function or class by its symbol name."
+                        "Find an exact function or class by its symbol name. "
+                        "Use only when the exact symbol is known."
                     ),
                     "parameters": {
                         "type": "object",
@@ -58,7 +59,8 @@ class RepoAgent:
                             "symbol": {
                                 "type": "string",
                                 "description": (
-                                    "Exact function or class name."
+                                    "Exact function or class name, such as "
+                                    "load_repository or RepoAgent."
                                 ),
                             }
                         },
@@ -71,7 +73,8 @@ class RepoAgent:
                 "function": {
                     "name": "read_file",
                     "description": (
-                        "Read the complete contents of a known repository file."
+                        "Read a known repository file when more surrounding "
+                        "context is needed."
                     ),
                     "parameters": {
                         "type": "object",
@@ -92,8 +95,8 @@ class RepoAgent:
                 "function": {
                     "name": "list_files",
                     "description": (
-                        "List source files in the repository. Use this for "
-                        "questions about repository structure, not code behavior."
+                        "List source files in the repository. "
+                        "Use only for repository structure questions."
                     ),
                     "parameters": {
                         "type": "object",
@@ -108,16 +111,37 @@ class RepoAgent:
             {
                 "role": "system",
                 "content": (
-                    "You are RepoAgent, a concise codebase assistant. "
-                    "Use repository tools to investigate questions before "
-                    "answering. For questions about how or where behavior is "
-                    "implemented, prefer search_code. If the user explicitly "
-                    "names a function or class, prefer find_symbol. "
-                    "Use read_file when you need more surrounding context. "
-                    "Use list_files only for repository structure questions. "
-                    "Never invent implementation details. "
-                    "Keep final answers to 1-4 short sentences and mention "
-                    "relevant functions/files."
+                    "You are RepoAgent, a concise codebase investigation assistant. "
+                    "Use repository tools before answering implementation questions. "
+
+                    "Use search_code for concepts, behaviors, features, and "
+                    "implementation questions. "
+                    "For HOW or WHERE questions, search_code should usually be "
+                    "the first tool you use. "
+
+                    "Use find_symbol ONLY when the user explicitly provides an "
+                    "exact function or class name, such as load_repository, "
+                    "build_index, RepoAgent, or RepositorySource. "
+                    "Never use find_symbol for generic concepts such as parser, "
+                    "parsing, authentication, indexing, routing, command, search, "
+                    "storage, loading, or retrieval. "
+
+                    "Use read_file only after you already know which file is "
+                    "relevant and need more surrounding context. "
+                    "Use list_files only for questions about project structure "
+                    "or which files exist. "
+
+                    "When search results include examples, tests, docs, and core "
+                    "source code, prefer the core source implementation. "
+
+                    "Never invent implementation details, APIs, examples, files, "
+                    "or behavior that were not returned by repository tools. "
+
+                    "FINAL ANSWERS MUST BE SHORT: usually 1-3 sentences. "
+                    "Answer the exact repository question directly. "
+                    "Do not provide tutorials, sample code, long explanations, "
+                    "or generic background unless explicitly requested. "
+                    "Mention the most relevant file and symbol when known."
                 ),
             },
             {
@@ -139,21 +163,16 @@ class RepoAgent:
 
             message = response.choices[0].message
 
-            # If there are no tool calls, the agent is done.
             if not message.tool_calls:
                 if message.content:
                     return message.content.strip()
 
                 return "I could not produce an answer."
 
-            # Preserve the assistant tool-call message.
             messages.append(
-                message.model_dump(
-                    exclude_none=True,
-                )
+                message.model_dump(exclude_none=True)
             )
 
-            # Execute every requested tool.
             for tool_call in message.tool_calls:
                 tool_name = tool_call.function.name
 
@@ -163,6 +182,10 @@ class RepoAgent:
                     )
                 except json.JSONDecodeError:
                     arguments = {}
+
+                print(
+                    f"[tool] {tool_name} {arguments}"
+                )
 
                 tool_result = self._execute_tool(
                     tool_name=tool_name,
@@ -210,7 +233,11 @@ class RepoAgent:
                         ),
                         "symbol": result.get("symbol"),
                         "type": result.get("type"),
-                        "content": result["content"],
+                        "score": round(
+                            result["score"],
+                            4,
+                        ),
+                        "content": result["content"][:2500],
                     }
                 )
 
@@ -236,7 +263,7 @@ class RepoAgent:
                         ),
                         "symbol": result.get("symbol"),
                         "type": result.get("type"),
-                        "content": result["content"],
+                        "content": result["content"][:2500],
                     }
                 )
 
@@ -248,7 +275,9 @@ class RepoAgent:
         if tool_name == "read_file":
             path = arguments.get("path", "")
 
-            return self.tools.read_file(path)
+            content = self.tools.read_file(path)
+
+            return content[:8000]
 
         if tool_name == "list_files":
             return json.dumps(

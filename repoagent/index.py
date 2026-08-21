@@ -4,31 +4,90 @@ from pathlib import Path
 import numpy as np
 
 
-INDEX_DIR = Path("data/index")
-EMBEDDINGS_FILE = INDEX_DIR / "embeddings.npy"
-CHUNKS_FILE = INDEX_DIR / "chunks.json"
+BASE_INDEX_DIR = Path("data/index")
 
 
-def save_index(chunks: list[dict], embeddings: np.ndarray) -> None:
-    INDEX_DIR.mkdir(parents=True, exist_ok=True)
-
-    np.save(EMBEDDINGS_FILE, embeddings)
-
-    with CHUNKS_FILE.open("w", encoding="utf-8") as file:
-        json.dump(chunks, file, indent=2)
+def get_index_dir(repository_id: str) -> Path:
+    return BASE_INDEX_DIR / repository_id
 
 
-def load_index() -> tuple[list[dict], np.ndarray]:
-    if not EMBEDDINGS_FILE.exists() or not CHUNKS_FILE.exists():
-        raise FileNotFoundError("No saved index found.")
+def save_index(
+    repository_id: str,
+    chunks: list[dict],
+    embeddings: np.ndarray,
+) -> None:
+    index_dir = get_index_dir(repository_id)
 
-    embeddings = np.load(EMBEDDINGS_FILE)
+    index_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
-    with CHUNKS_FILE.open("r", encoding="utf-8") as file:
+    embeddings_file = (
+        index_dir / "embeddings.npy"
+    )
+
+    chunks_file = (
+        index_dir / "chunks.json"
+    )
+
+    np.save(
+        embeddings_file,
+        embeddings,
+    )
+
+    with chunks_file.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            chunks,
+            file,
+            indent=2,
+        )
+
+
+def load_index(
+    repository_id: str,
+) -> tuple[list[dict], np.ndarray]:
+    index_dir = get_index_dir(repository_id)
+
+    embeddings_file = (
+        index_dir / "embeddings.npy"
+    )
+
+    chunks_file = (
+        index_dir / "chunks.json"
+    )
+
+    if (
+        not embeddings_file.exists()
+        or not chunks_file.exists()
+    ):
+        raise FileNotFoundError(
+            "No saved index found."
+        )
+
+    embeddings = np.load(
+        embeddings_file
+    )
+
+    with chunks_file.open(
+        "r",
+        encoding="utf-8",
+    ) as file:
         chunks = json.load(file)
 
     return chunks, embeddings
 
 
-def index_exists() -> bool:
-    return EMBEDDINGS_FILE.exists() and CHUNKS_FILE.exists()
+def index_exists(
+    repository_id: str,
+) -> bool:
+    index_dir = get_index_dir(repository_id)
+
+    return (
+        (index_dir / "embeddings.npy").exists()
+        and
+        (index_dir / "chunks.json").exists()
+    )

@@ -1,59 +1,102 @@
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"urllib3 v2 only supports OpenSSL 1\.1\.1\+.*",
+)
 import sys
 from pathlib import Path
 
 from repoagent.loader import load_repository
 from repoagent.chunker import chunk_repository
 from repoagent.embeddings import EmbeddingModel
-from repoagent.index import save_index, load_index, index_exists
+from repoagent.index import (
+    save_index,
+    load_index,
+    index_exists,
+)
 from repoagent.tools import RepoTools
 from repoagent.agent import RepoAgent
+from repoagent.repo_source import (
+    RepositorySource,
+    get_repository_id,
+)
 
 
 def build_index(
     repo_path: Path,
+    repository_id: str,
     embedding_model: EmbeddingModel,
 ):
-    files = load_repository(str(repo_path))
-    print(f"Found {len(files)} source files.")
+    files = load_repository(
+        str(repo_path)
+    )
+
+    print(
+        f"Found {len(files)} source files."
+    )
 
     chunks = chunk_repository(
         files=files,
         repo_root=repo_path,
     )
 
-    print(f"Created {len(chunks)} chunks.")
+    print(
+        f"Created {len(chunks)} chunks."
+    )
 
-    embeddings = embedding_model.embed_chunks(chunks)
+    embeddings = (
+        embedding_model.embed_chunks(chunks)
+    )
 
-    print(f"Generated {len(embeddings)} embeddings.")
+    print(
+        f"Generated {len(embeddings)} embeddings."
+    )
 
-    save_index(chunks, embeddings)
+    save_index(
+        repository_id=repository_id,
+        chunks=chunks,
+        embeddings=embeddings,
+    )
 
-    print("Saved index to data/index/")
+    print(
+        "Saved repository index."
+    )
 
     return chunks, embeddings
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <repo-path>")
-        return
-
-    repo_path = Path(sys.argv[1]).resolve()
+def run_repoagent(
+    repo_path: Path,
+    source: str,
+):
+    repository_id = (
+        get_repository_id(source)
+    )
 
     embedding_model = EmbeddingModel()
 
-    if index_exists():
-        print("Loading existing index...")
+    if index_exists(repository_id):
+        print(
+            "Loading existing index..."
+        )
 
-        chunks, embeddings = load_index()
+        chunks, embeddings = load_index(
+            repository_id
+        )
 
-        print(f"Loaded {len(chunks)} chunks.")
+        print(
+            f"Loaded {len(chunks)} chunks."
+        )
+
     else:
-        print("No index found. Building one...")
+        print(
+            "No index found. Building one..."
+        )
 
         chunks, embeddings = build_index(
             repo_path=repo_path,
+            repository_id=repository_id,
             embedding_model=embedding_model,
         )
 
@@ -66,7 +109,9 @@ def main():
 
     agent = RepoAgent(tools)
 
-    print("\nRepoAgent ready.")
+    print(
+        "\nRepoAgent ready."
+    )
 
     while True:
         query = input(
@@ -74,15 +119,59 @@ def main():
             "(or type 'exit'): "
         )
 
-        if query.lower() in {"exit", "quit"}:
+        if query.lower() in {
+            "exit",
+            "quit",
+        }:
             break
 
-        print("\nThinking...")
+        print(
+            "\nThinking..."
+        )
 
         answer = agent.run(query)
 
-        print("\nRepoAgent:\n")
+        print(
+            "\nRepoAgent:\n"
+        )
+
         print(answer)
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(
+            "Usage:\n"
+            "  python main.py <local-repo-path>\n"
+            "  python main.py <github-url>"
+        )
+
+        return
+
+    source = sys.argv[1]
+
+    try:
+        with RepositorySource(
+            source
+        ) as repo_path:
+            run_repoagent(
+                repo_path=repo_path,
+                source=source,
+            )
+
+    except KeyboardInterrupt:
+        print(
+            "\n\nRepoAgent stopped."
+        )
+
+    except (
+        FileNotFoundError,
+        ValueError,
+        RuntimeError,
+    ) as error:
+        print(
+            f"\nError: {error}"
+        )
 
 
 if __name__ == "__main__":
