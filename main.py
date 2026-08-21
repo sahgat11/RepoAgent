@@ -4,23 +4,24 @@ warnings.filterwarnings(
     "ignore",
     message=r"urllib3 v2 only supports OpenSSL 1\.1\.1\+.*",
 )
-import sys
+
+import argparse
 from pathlib import Path
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
 
 from repoagent.loader import load_repository
 from repoagent.chunker import chunk_repository
 from repoagent.embeddings import EmbeddingModel
-from repoagent.index import (
-    save_index,
-    load_index,
-    index_exists,
-)
+from repoagent.index import save_index, load_index, index_exists
 from repoagent.tools import RepoTools
 from repoagent.agent import RepoAgent
-from repoagent.repo_source import (
-    RepositorySource,
-    get_repository_id,
-)
+from repoagent.repo_source import RepositorySource, get_repository_id
+
+
+console = Console()
 
 
 def build_index(
@@ -28,12 +29,16 @@ def build_index(
     repository_id: str,
     embedding_model: EmbeddingModel,
 ):
+    console.print(
+        "[bold]Scanning repository...[/bold]"
+    )
+
     files = load_repository(
         str(repo_path)
     )
 
-    print(
-        f"Found {len(files)} source files."
+    console.print(
+        f"Found [cyan]{len(files)}[/cyan] source files."
     )
 
     chunks = chunk_repository(
@@ -41,16 +46,20 @@ def build_index(
         repo_root=repo_path,
     )
 
-    print(
-        f"Created {len(chunks)} chunks."
+    console.print(
+        f"Created [cyan]{len(chunks)}[/cyan] code chunks."
     )
 
-    embeddings = (
-        embedding_model.embed_chunks(chunks)
+    console.print(
+        "[bold]Generating embeddings...[/bold]"
     )
 
-    print(
-        f"Generated {len(embeddings)} embeddings."
+    embeddings = embedding_model.embed_chunks(
+        chunks
+    )
+
+    console.print(
+        f"Generated [cyan]{len(embeddings)}[/cyan] embeddings."
     )
 
     save_index(
@@ -59,8 +68,8 @@ def build_index(
         embeddings=embeddings,
     )
 
-    print(
-        "Saved repository index."
+    console.print(
+        "[green]Repository index saved.[/green]"
     )
 
     return chunks, embeddings
@@ -69,29 +78,45 @@ def build_index(
 def run_repoagent(
     repo_path: Path,
     source: str,
+    rebuild: bool,
 ):
-    repository_id = (
-        get_repository_id(source)
+    repository_id = get_repository_id(
+        source
+    )
+
+    console.print(
+        "\n[bold]Loading embedding model...[/bold]"
     )
 
     embedding_model = EmbeddingModel()
 
-    if index_exists(repository_id):
-        print(
-            "Loading existing index..."
+    if rebuild:
+        console.print(
+            "[yellow]Rebuilding repository index...[/yellow]"
+        )
+
+        chunks, embeddings = build_index(
+            repo_path=repo_path,
+            repository_id=repository_id,
+            embedding_model=embedding_model,
+        )
+
+    elif index_exists(repository_id):
+        console.print(
+            "[green]Cached repository index found.[/green]"
         )
 
         chunks, embeddings = load_index(
             repository_id
         )
 
-        print(
-            f"Loaded {len(chunks)} chunks."
+        console.print(
+            f"Loaded [cyan]{len(chunks)}[/cyan] chunks."
         )
 
     else:
-        print(
-            "No index found. Building one..."
+        console.print(
+            "[yellow]No cached index found.[/yellow]"
         )
 
         chunks, embeddings = build_index(
@@ -109,59 +134,122 @@ def run_repoagent(
 
     agent = RepoAgent(tools)
 
-    print(
-        "\nRepoAgent ready."
+    console.print()
+
+    console.print(
+        Panel.fit(
+            "[bold green]RepoAgent is ready[/bold green]\n"
+            "[dim]Ask questions about the repository. "
+            "Type 'exit' to quit.[/dim]",
+            title="RepoAgent",
+            border_style="green",
+        )
     )
 
     while True:
-        query = input(
-            "\nAsk about the repository "
-            "(or type 'exit'): "
+        console.print()
+
+        query = Prompt.ask(
+            "[bold cyan]You[/bold cyan]"
         )
 
-        if query.lower() in {
+        if query.lower().strip() in {
             "exit",
             "quit",
         }:
+            console.print(
+                "\n[dim]RepoAgent stopped.[/dim]"
+            )
             break
 
-        print(
-            "\nThinking..."
+        if not query.strip():
+            continue
+
+        console.print()
+
+        with console.status(
+            "[bold cyan]Investigating repository...[/bold cyan]",
+            spinner="dots",
+        ):
+            answer = agent.run(query)
+
+        console.print()
+
+        console.print(
+            Panel(
+                answer,
+                title="[bold]RepoAgent[/bold]",
+                border_style="blue",
+                padding=(1, 2),
+            )
         )
 
-        answer = agent.run(query)
 
-        print(
-            "\nRepoAgent:\n"
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description=(
+            "RepoAgent - local AI codebase assistant."
         )
+    )
 
-        print(answer)
+    parser.add_argument(
+        "repository",
+        help=(
+            "Local repository path or "
+            "public GitHub URL."
+        ),
+    )
+
+    parser.add_argument(
+        "--rebuild",
+        action="store_true",
+        help=(
+            "Force RepoAgent to rebuild the "
+            "repository index instead of using "
+            "a cached index."
+        ),
+    )
+
+    return parser.parse_args()
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(
-            "Usage:\n"
-            "  python main.py <local-repo-path>\n"
-            "  python main.py <github-url>"
+    console.print(
+        Panel.fit(
+            "[bold blue]RepoAgent[/bold blue]\n"
+            "[dim]Local AI Codebase Assistant[/dim]",
+            border_style="blue",
         )
+    )
 
-        return
+    args = parse_arguments()
 
-    source = sys.argv[1]
+    source = args.repository
+
+    console.print(
+        f"\n[bold]Repository:[/bold] {source}"
+    )
 
     try:
+        if source.startswith(
+            "https://github.com/"
+        ):
+            console.print(
+                "[dim]Cloning repository temporarily...[/dim]"
+            )
+
         with RepositorySource(
             source
         ) as repo_path:
             run_repoagent(
                 repo_path=repo_path,
                 source=source,
+                rebuild=args.rebuild,
             )
 
     except KeyboardInterrupt:
-        print(
-            "\n\nRepoAgent stopped."
+        console.print(
+            "\n\n[yellow]RepoAgent stopped.[/yellow]"
         )
 
     except (
@@ -169,8 +257,8 @@ def main():
         ValueError,
         RuntimeError,
     ) as error:
-        print(
-            f"\nError: {error}"
+        console.print(
+            f"\n[bold red]Error:[/bold red] {error}"
         )
 
 

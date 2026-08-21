@@ -50,7 +50,7 @@ class RepoAgent:
                 "function": {
                     "name": "find_symbol",
                     "description": (
-                        "Find an exact function or class by its symbol name. "
+                        "Find an exact function or class by symbol name. "
                         "Use only when the exact symbol is known."
                     ),
                     "parameters": {
@@ -58,10 +58,6 @@ class RepoAgent:
                         "properties": {
                             "symbol": {
                                 "type": "string",
-                                "description": (
-                                    "Exact function or class name, such as "
-                                    "load_repository or RepoAgent."
-                                ),
                             }
                         },
                         "required": ["symbol"],
@@ -81,9 +77,6 @@ class RepoAgent:
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": (
-                                    "File path relative to the repository root."
-                                ),
                             }
                         },
                         "required": ["path"],
@@ -113,34 +106,21 @@ class RepoAgent:
                 "content": (
                     "You are RepoAgent, a concise codebase investigation assistant. "
                     "Use repository tools before answering implementation questions. "
-
                     "Use search_code for concepts, behaviors, features, and "
                     "implementation questions. "
                     "For HOW or WHERE questions, search_code should usually be "
                     "the first tool you use. "
-
-                    "Use find_symbol ONLY when the user explicitly provides an "
-                    "exact function or class name, such as load_repository, "
-                    "build_index, RepoAgent, or RepositorySource. "
-                    "Never use find_symbol for generic concepts such as parser, "
-                    "parsing, authentication, indexing, routing, command, search, "
-                    "storage, loading, or retrieval. "
-
-                    "Use read_file only after you already know which file is "
-                    "relevant and need more surrounding context. "
+                    "Use find_symbol only when the user provides an exact function "
+                    "or class name. "
+                    "Use read_file only after you already know which file is relevant "
+                    "and need more surrounding context. "
                     "Use list_files only for questions about project structure "
                     "or which files exist. "
-
-                    "When search results include examples, tests, docs, and core "
-                    "source code, prefer the core source implementation. "
-
+                    "Prefer core source code over examples, tests, and docs. "
                     "Never invent implementation details, APIs, examples, files, "
                     "or behavior that were not returned by repository tools. "
-
-                    "FINAL ANSWERS MUST BE SHORT: usually 1-3 sentences. "
+                    "Final answers should normally be 1-3 sentences. "
                     "Answer the exact repository question directly. "
-                    "Do not provide tutorials, sample code, long explanations, "
-                    "or generic background unless explicitly requested. "
                     "Mention the most relevant file and symbol when known."
                 ),
             },
@@ -182,10 +162,6 @@ class RepoAgent:
                     )
                 except json.JSONDecodeError:
                     arguments = {}
-
-                print(
-                    f"[tool] {tool_name} {arguments}"
-                )
 
                 tool_result = self._execute_tool(
                     tool_name=tool_name,
@@ -233,10 +209,6 @@ class RepoAgent:
                         ),
                         "symbol": result.get("symbol"),
                         "type": result.get("type"),
-                        "score": round(
-                            result["score"],
-                            4,
-                        ),
                         "content": result["content"][:2500],
                     }
                 )
@@ -275,9 +247,7 @@ class RepoAgent:
         if tool_name == "read_file":
             path = arguments.get("path", "")
 
-            content = self.tools.read_file(path)
-
-            return content[:8000]
+            return self.tools.read_file(path)[:8000]
 
         if tool_name == "list_files":
             return json.dumps(
